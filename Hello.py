@@ -5,6 +5,7 @@ from tempfile import mktemp
 import os
 from openai import OpenAI
 import constant
+import speech_recognition as sr
 
 client = OpenAI(api_key=st.secrets["openaikey"])
 
@@ -43,29 +44,59 @@ def generate_corrected_transcript( text_transcribed):
     )
     return(response.choices[0].message.content)
     # return completion.choices[0].message.content
+#
+# def transcribe(audio_file_path, prompt=""):
+#     """
+#     Transcribes the given audio file to text using OpenAI's Whisper model.
+#
+#     :param audio_file_path: The path to the audio file to be transcribed.
+#     :param prompt: An optional prompt to improve transcription accuracy.
+#     :return: The transcribed text.
+#     """
+#
+#     with open(audio_file_path, "rb") as audio_file:
+#         transcript_response = client.audio.transcriptions.create(
+#             model="whisper-1",
+#             file=audio_file,
+#             response_format="text"  # Ensure response is in text format for direct access
+#         )
+#     print(transcript_response)
+#     # Directly accessing the 'text' field from the response
+#     # transcribed_text = transcript_response["text"] if "text" in transcript_response else "Transcription failed."
+#
+#     result =generate_corrected_transcript(transcript_response)
+#     return [transcript_response,result]
+
 
 def transcribe(audio_file_path, prompt=""):
     """
-    Transcribes the given audio file to text using OpenAI's Whisper model.
+    Transcribes the given audio file to text using the SpeechRecognition library and Google Web Speech API.
 
     :param audio_file_path: The path to the audio file to be transcribed.
-    :param prompt: An optional prompt to improve transcription accuracy.
-    :return: The transcribed text.
+    :param prompt: An optional prompt to improve transcription accuracy (not used in this example).
+    :return: The transcribed text or an error message.
     """
 
-    with open(audio_file_path, "rb") as audio_file:
-        transcript_response = client.audio.transcriptions.create(
-            model="whisper-1",
-            file=audio_file,
-            response_format="text"  # Ensure response is in text format for direct access
-        )
-    print(transcript_response)
-    # Directly accessing the 'text' field from the response
-    # transcribed_text = transcript_response["text"] if "text" in transcript_response else "Transcription failed."
+    # Initialize the recognizer
+    recognizer = sr.Recognizer()
 
-    result =generate_corrected_transcript(transcript_response)
-    return [transcript_response,result]
+    # Load the audio file
+    with sr.AudioFile(audio_file_path) as source:
+        audio_data = recognizer.record(source)
 
+    try:
+        # Recognize the speech using Google Web Speech API
+        transcribed_text = recognizer.recognize_google(audio_data)
+    except sr.RequestError:
+        # API was unreachable or unresponsive
+        return "API unavailable."
+    except sr.UnknownValueError:
+        # Speech was unintelligible
+        return "Unable to recognize speech."
+
+    result = generate_corrected_transcript(transcribed_text)
+    print(transcribed_text)
+    return [transcribed_text,result]
 
 # App title
 st.title("MUXLAB Demo - Audio Recorder and Transcriber")
